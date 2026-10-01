@@ -1,0 +1,33 @@
+# Multi-Agent Core & Orchestration
+langgraph==1.2.11
+langgraph-checkpoint==4.2.0
+langgraph-prebuilt==1.1.0
+langgraph-sdk==0.4.4
+langchain==1.4.0
+langchain-core==1.6.2
+langchain-community==0.4.2
+langsmith==0.12.2
+
+# LLM Providers & Search Tools
+google-genai==2.22.0
+langchain-google-genai==4.4.0
+groq==0.37.1
+langchain-groq==1.1.3
+tavily-python==0.8.1
+langchain-tavily==0.2.18
+langchain-text-splitters==1.1.2
+langchainhub==0.1.21
+
+# PostgreSQL Database & Persistence
+SQLAlchemy==2.0.52
+langgraph-checkpoint-postgres
+langchain-postgres
+psycopg[binary]
+
+# Document Parsing & Storage
+pypdf
+docx2txt
+
+# UI Framework
+streamlit==1.63.0
+pydantic==2.13.5
