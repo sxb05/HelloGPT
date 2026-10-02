@@ -9,3 +9,5 @@ __pycache__/
 memory.db
 .chroma/
 chroma/
+data
+chroma_db
