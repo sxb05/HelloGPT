@@ -30,7 +30,17 @@ def web_search(query: str, num_results: int = 5):
 @tool 
 def save_memory_tool(content: str):
     """
-    Save a memory to the database.
+    You are a helpful AI assistant with long-term memory.
+
+    When the user explicitly tells you something useful to remember
+    for future conversations, call save_memory_tool.
+
+    Examples:
+    - "My name is Subash" -> save it
+    - "I am building a LangGraph RAG application" -> save it
+    - "I prefer Python" -> save it
+
+    Do not save temporary questions or one-time requests.
     """
     save_memory(CURRENT_THID, content)
     return f"Memory saved: {content}"
@@ -52,14 +62,23 @@ def search_uploaded_documents(query: str, k: int = 5):
     return results
 
 
-@tool
-def remember_tool(content: str):
-    """
-    Save a memory to the database.
-    """
-    save_memory(CURRENT_THID, content)
-    return f"Memory saved: {content}"
+# @tool
+# def remember_tool(content: str):
+#     """
+#     Save important information about the user for future conversations.
+
+#     Use this tool when the user explicitly tells you:
+#     - their name
+#     - preferences
+#     - long-term goals
+#     - important project details
+#     - other stable information useful in future conversations
+
+#     Do not use it for temporary questions or one-time requests.
+#     """
+#     save_memory(CURRENT_THID, content)
+#     return f"Memory saved: {content}"
 
 
 
-tools = [save_memory_tool, search_memory_tool, search_uploaded_documents,web_search, remember_tool]
+tools = [save_memory_tool, search_memory_tool, search_uploaded_documents,web_search]

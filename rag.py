@@ -36,8 +36,8 @@ def read_pdf(file_path: str) -> str:
         pdf_reader = PdfReader(file_path)
         text = ""
         for page in pdf_reader.pages:
-            text += page.extract_text() + "\n"
-            return text
+            text += (page.extract_text() or "") + "\n"
+        return text
     if suffix == ".docx":
         text = docx2txt.process(file_path)
         return text 
@@ -54,8 +54,13 @@ def add_document_to_vector_store(file_path: str, thread_id: str):
     text = read_pdf(file_path)
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     chunks = text_splitter.split_text(text)
-    documents = List[Document] = [Document(page_content=chunk,
-                                             metadta={"thread_id": thread_id,"source": Path(file_path)}) for chunk in chunks]
+    documents: List[Document] = [
+        Document(
+            page_content=chunk,
+            metadata={"thread_id": thread_id, "source": Path(file_path).name},
+        )
+        for chunk in chunks
+    ]
     
     vector_store.add_documents(documents)
 

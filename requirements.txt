@@ -30,4 +30,7 @@ docx2txt
 
 # UI Framework
 streamlit==1.63.0
+fastapi
+uvicorn
+python-multipart
 pydantic==2.13.5

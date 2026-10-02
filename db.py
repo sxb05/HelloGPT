@@ -26,34 +26,38 @@ class Conversation(Base):
     created_at = Column(String(255), default=datetime.utcnow().isoformat())
     updated_at = Column(String(255), default=datetime.utcnow().isoformat(),
                          onupdate=datetime.utcnow().isoformat())
-    # messages = relationship("Message", back_populates="conversation", cascade="all, delete-orphan")
-
+    messages = relationship("ChatMessage", back_populates="conversation", cascade="all, delete-orphan")
+    long_term_memories = relationship(
+    "LongTermMemory",
+    back_populates="conversation",
+    cascade="all, delete-orphan"
+)
 
 class ChatMessage(Base):
     __tablename__ = "chat_messages"
 
     id = Column(Integer, primary_key=True, index=True)
-    thread_id = Column(String)
+    thread_id = Column(String,ForeignKey("conversations.thread_id"), nullable=False)
     role = Column(String(50), nullable=False)
     content = Column(Text, nullable=False)
     created_at = Column(String(255), default=datetime.utcnow().isoformat())
     updated_at = Column(String(255), default=datetime.utcnow().isoformat(),
                          onupdate=datetime.utcnow().isoformat())
 
-    conversation = relationship("Conversation", backref="messages")
+    conversation = relationship("Conversation", back_populates="messages")
 
 
 class LongTermMemory(Base):
     __tablename__ = "long_term_memory"
 
     id = Column(Integer, primary_key=True, index=True)
-    thread_id = Column(String)
+    thread_id = Column(String,ForeignKey("conversations.thread_id"))
     content = Column(Text, nullable=False)
     created_at = Column(String(255), default=datetime.utcnow().isoformat())
     updated_at = Column(String(255), default=datetime.utcnow().isoformat(),
                          onupdate=datetime.utcnow().isoformat())
 
-    conversation = relationship("Conversation", backref="long_term_memories")
+    conversation = relationship("Conversation", back_populates="long_term_memories")
 
 
 def init_db():
@@ -108,16 +112,34 @@ def save_chat_message(thread_id: str, role: str, content: str):
 
 def save_memory(thread_id: str, content: str):
     session = SessionLocal()
+    print("🔥 SAVE MEMORY TOOL CALLED:", content)
     try:
-        memory = LongTermMemory(thread_id=thread_id, content=content)
+        conversation = (
+            session.query(Conversation)
+            .filter_by(thread_id=thread_id)
+            .first()
+        )
+
+        if not conversation:
+            raise ValueError(
+                f"Conversation with thread_id '{thread_id}' does not exist"
+            )
+
+        memory = LongTermMemory(
+            thread_id=thread_id,
+            content=content
+        )
+
         session.add(memory)
-        conversation = (session.query(Conversation).filter_by(thread_id=thread_id).first())
-        if conversation:
-            conversation.updated_at = datetime.utcnow().isoformat()
+
+        conversation.updated_at = datetime.utcnow().isoformat()
+
         session.commit()
-    except Exception as e:
+
+    except Exception:
         session.rollback()
-        raise e
+        raise
+
     finally:
         session.close()
 
