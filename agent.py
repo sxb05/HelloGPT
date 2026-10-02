@@ -1,4 +1,5 @@
-from os import Path
+import os
+from pathlib import Path
 from dotenv import load_dotenv
 from langchain_core.prompts import PromptTemplate, ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
 from langchain_core.messages import SystemMessage, HumanMessage
@@ -8,13 +9,14 @@ from langgraph.graph import StateGraph, START, END, MessagesState
 from langgraph.prebuilt import ToolNode, tools_condition
 from langgraph.checkpoint.sqlite import SqliteSaver
 import sqlite3
-
+from tools import tools
 
 
 
 
 load_dotenv()
-GEMINI_API_KEY = "GEMINI_API_KEY"
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
 
 Path("data").mkdir(exist_ok = True)
 
@@ -240,7 +242,7 @@ If required information is missing:
     workflow.add_node("tools", toolnode)
 
     workflow.add_edge(START, "chatbot")
-    workflow.add_conditional_edges("chatbot", tools_condition))
+    workflow.add_conditional_edges("chatbot", tools_condition)
     workflow.add_edge("tools", "chatbot")
 
     conn = sqlite3.connect(
@@ -250,3 +252,14 @@ If required information is missing:
     checkpointer = SqliteSaver(conn)
 
     return workflow.compile(checkpointer=checkpointer)
+
+
+
+_AGENT_CACHE = {}
+
+def get_agent(model_name: str):
+
+    model = normalize_model_name(model_name)
+    if model not in _AGENT_CACHE:
+        _AGENT_CACHE[model] = build_agent(model)
+    return _AGENT_CACHE[model]
