@@ -170,3 +170,19 @@ def get_chat_history(thread_id: str):
         raise e
     finally:
         session.close()
+
+
+def delete_conversation(thread_id: str) -> bool:
+    session = SessionLocal()
+    try:
+        conversation = session.query(Conversation).filter_by(thread_id=thread_id).first()
+        if conversation is None:
+            return False
+        session.delete(conversation)
+        session.commit()
+        return True
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()

@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from agent import get_agent
 from db import (
     create_update_convo,
+    delete_conversation,
     get_chat_history,
     init_db,
     list_conversations,
@@ -88,6 +89,13 @@ def history(thread_id: str) -> list[dict[str, str]]:
         {"role": message.role, "content": message.content}
         for message in get_chat_history(thread_id)
     ]
+
+
+@app.delete("/api/conversations/{thread_id}")
+def remove_conversation(thread_id: str) -> dict[str, bool]:
+    if not delete_conversation(thread_id):
+        raise HTTPException(status_code=404, detail="Conversation not found.")
+    return {"deleted": True}
 
 
 @app.post("/api/chat")

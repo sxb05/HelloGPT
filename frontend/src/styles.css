@@ -20,8 +20,17 @@ button { border: 0; cursor: pointer; color: inherit; }
 .sidebar-search input { min-width: 0; width: 100%; border: 0; outline: 0; color: #ddd; background: transparent; font-size: 12px; }
 .history-heading { display: flex; justify-content: space-between; align-items: center; padding: 13px 9px 7px; color: #7d7d7d; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
 .history-list { flex: 1; overflow: auto; }
-.history-item { width: 100%; display: flex; align-items: center; gap: 10px; padding: 9px; border-radius: 7px; background: transparent; color: #c1c1c1; text-align: left; font-size: 13px; }
+.history-item { position: relative; width: 100%; display: flex; align-items: center; gap: 10px; padding: 9px; border-radius: 7px; background: transparent; color: #c1c1c1; text-align: left; font-size: 13px; }
 .history-item span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.history-select { min-width: 0; flex: 1; display: flex; align-items: center; gap: 10px; padding: 0; background: transparent; color: inherit; text-align: left; }
+.history-menu-button { display: grid; place-items: center; padding: 3px; border-radius: 5px; background: transparent; color: #8e8795; opacity: 0; }
+.history-item:hover .history-menu-button, .history-item.active .history-menu-button, .history-menu-button[aria-expanded="true"] { opacity: 1; }
+.history-menu-button:hover, .history-menu-button[aria-expanded="true"] { background: #3b2a4b; color: #fff; }
+.history-menu { position: absolute; z-index: 3; top: calc(100% - 3px); right: 7px; min-width: 124px; padding: 4px; border: 1px solid #443452; border-radius: 8px; background: #18131e; box-shadow: 0 12px 25px #0009; }
+.history-menu button { width: 100%; display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 5px; background: transparent; color: #d8d0de; font-size: 12px; text-align: left; }
+.history-menu button:hover { background: #2a2034; color: #fff; }
+.history-menu button.danger { color: #ff9b6d; }
+.history-menu button.danger:hover { background: #3a211d; color: #ffb18e; }
 .history-item.active { background: #2a2a2a; color: #fff; }
 .empty-history { color: #6c6c6c; font-size: 12px; line-height: 1.55; padding: 8px 9px; }
 .sidebar-footer { border-top: 1px solid #2b2b2b; padding-top: 10px; }
@@ -54,7 +63,7 @@ body, .main-panel { background: #000; }
 .history-item { color: #c8c0cf; }
 .history-item.active { background: #261d31; color: #fff; box-shadow: inset 2px 0 #ff8a3d; }
 .sidebar-footer { border-color: #28202f; }
-.avatar { background: #ff8a3d; color: #24130b; }
+.avatar { background: #5a3b72; color:  #ff8a3d; }
 .model-picker { color: #e7e1ed; }
 .model-picker:hover { background: #211b29; }
 .status-dot { background: #ff8a3d; box-shadow: 0 0 0 3px #4d2d25; }

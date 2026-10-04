@@ -48,6 +48,7 @@ function App() {
   const [model, setModel] = useState("gemini-3.1-flash-lite");
   const [error, setError] = useState("");
   const [fileName, setFileName] = useState("");
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -58,14 +59,48 @@ function App() {
       .catch(() => undefined);
   }, []);
 
+  useEffect(() => {
+    const sharedThreadId = new URLSearchParams(window.location.search).get("conversation");
+    if (sharedThreadId && conversations.some((conversation) => conversation.thread_id === sharedThreadId)) {
+      void selectConversation(sharedThreadId);
+    }
+  }, [conversations]);
+
   useEffect(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), [messages, loading]);
 
   async function selectConversation(id: string) {
     setThreadId(id);
     setSidebarOpen(false);
     setError("");
+    setOpenMenuId(null);
     const response = await fetch(`/api/conversations/${id}/messages`);
     if (response.ok) setMessages(await response.json());
+  }
+
+  async function shareConversation(conversation: Conversation) {
+    const shareUrl = `${window.location.origin}/?conversation=${encodeURIComponent(conversation.thread_id)}`;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setError(`Share link copied for "${conversation.name}".`);
+    } catch {
+      setError("Could not copy the share link. Please copy the page URL manually.");
+    }
+    setOpenMenuId(null);
+  }
+
+  async function removeConversation(conversation: Conversation) {
+    if (!window.confirm(`Delete "${conversation.name}"? This cannot be undone.`)) return;
+    const response = await fetch(`/api/conversations/${conversation.thread_id}`, { method: "DELETE" });
+    if (!response.ok) {
+      setError("Unable to delete this conversation.");
+      return;
+    }
+    setConversations((current) => current.filter((item) => item.thread_id !== conversation.thread_id));
+    if (threadId === conversation.thread_id) {
+      setThreadId(null);
+      setMessages([]);
+    }
+    setOpenMenuId(null);
   }
 
   async function newChat() {
@@ -153,9 +188,28 @@ function App() {
         <nav className="history-list">
           {conversations.length === 0 && <p className="empty-history">Your recent conversations will appear here.</p>}
           {conversations.map((conversation) => (
-            <button key={conversation.thread_id} className={`history-item ${conversation.thread_id === threadId ? "active" : ""}`} onClick={() => selectConversation(conversation.thread_id)}>
-              <MessageSquare size={15} /><span>{conversation.name}</span>
-            </button>
+            <div key={conversation.thread_id} className={`history-item ${conversation.thread_id === threadId ? "active" : ""}`}>
+              <button className="history-select" onClick={() => selectConversation(conversation.thread_id)}>
+                <MessageSquare size={15} /><span>{conversation.name}</span>
+              </button>
+              <button
+                className="history-menu-button"
+                aria-label={`Actions for ${conversation.name}`}
+                aria-expanded={openMenuId === conversation.thread_id}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setOpenMenuId((current) => current === conversation.thread_id ? null : conversation.thread_id);
+                }}
+              >
+                <MoreHorizontal size={17} />
+              </button>
+              {openMenuId === conversation.thread_id && (
+                <div className="history-menu">
+                  <button onClick={() => shareConversation(conversation)}><Copy size={14} /> Share</button>
+                  <button className="danger" onClick={() => removeConversation(conversation)}><X size={14} /> Delete</button>
+                </div>
+              )}
+            </div>
           ))}
         </nav>
         <div className="sidebar-footer">
