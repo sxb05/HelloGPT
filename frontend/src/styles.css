@@ -34,9 +34,23 @@ button { border: 0; cursor: pointer; color: inherit; }
 .history-item.active { background: #2a2a2a; color: #fff; }
 .empty-history { color: #6c6c6c; font-size: 12px; line-height: 1.55; padding: 8px 9px; }
 .sidebar-footer { border-top: 1px solid #2b2b2b; padding-top: 10px; }
+.account-menu-wrap { position: relative; }
 .account-card { width: 100%; display: flex; align-items: center; gap: 9px; background: transparent; padding: 8px; border-radius: 8px; text-align: left; }
 .account-card span:nth-child(2) { flex: 1; display: grid; gap: 2px; }.account-card strong { font-size: 13px; }.account-card small { color: #858585; font-size: 11px; }
+.account-menu { position: absolute; z-index: 3; right: 7px; bottom: calc(100% + 4px); min-width: 142px; padding: 4px; border: 1px solid #443452; border-radius: 8px; background: #18131e; box-shadow: 0 12px 25px #0009; }
+.account-menu button { width: 100%; display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 5px; background: transparent; color: #d8d0de; font-size: 12px; text-align: left; }
+.account-menu button:hover { background: #2a2034; color: #fff; }.account-menu button.danger { color: #ff9b6d; }.account-menu button.danger:hover { background: #3a211d; color: #ffb18e; }
 .avatar { display: grid; place-items: center; width: 29px; height: 29px; border-radius: 50%; background: #b8d67a; color: #1c2816; font: 700 12px "Manrope"; }.avatar.small { width: 27px; height: 27px; font-size: 11px; }
+.login-page { position: relative; isolation: isolate; min-height: 100vh; display: grid; place-items: center; overflow: hidden; padding: 32px 20px; background: #000; color: #f5f3ff; }
+.login-page::before { content: ""; position: absolute; inset: 0; z-index: -2; background: radial-gradient(circle at 50% 42%, #291c35 0, #100e13 31%, #000 70%); }
+.login-page::after { content: ""; position: absolute; inset: 0; z-index: -1; opacity: .35; background-image: linear-gradient(#ffffff05 1px, transparent 1px), linear-gradient(90deg, #ffffff05 1px, transparent 1px); background-size: 42px 42px; mask-image: linear-gradient(to bottom, transparent, #000 35%, transparent); }
+.login-glow { position: absolute; z-index: -1; width: 260px; height: 260px; border-radius: 50%; filter: blur(12px); opacity: .2; pointer-events: none; }
+.login-glow--top { top: -150px; right: 10%; background: #ff8a3d; }.login-glow--bottom { bottom: -180px; left: 8%; background: #713f9b; }
+.login-card { width: min(100%, 430px); padding: 28px; border: 1px solid #3a3043; border-radius: 20px; background: #0d0b10dd; box-shadow: 0 24px 80px #000, inset 0 1px #ffffff0a; backdrop-filter: blur(16px); animation: rise .5s ease both; }
+.login-brand { display: flex; align-items: center; gap: 10px; color: #f2f2f2; font: 700 16px "Manrope", sans-serif; letter-spacing: -.02em; }
+.login-heading { padding: 45px 0 30px; text-align: center; }.login-orb { width: 62px; height: 62px; display: grid; place-items: center; margin: 0 auto 20px; border: 1px solid #5a3b72; border-radius: 19px; color: #d5b1ef; background: radial-gradient(circle at 30% 20%, #39254c, #19131f); box-shadow: 0 12px 30px #08070a; }
+.login-eyebrow { margin: 0 0 10px; color: #ff9d5d; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }.login-heading h1 { margin: 0; color: #f5f3ff; font: 600 clamp(28px, 6vw, 36px) "Manrope", sans-serif; letter-spacing: -.045em; }.login-heading > p:last-child { max-width: 290px; margin: 12px auto 0; color: #a59cab; font-size: 14px; line-height: 1.55; }
+.login-button { width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 48px; padding: 12px 18px; border: 1px solid #ffab73; border-radius: 10px; color: #271409; background: linear-gradient(135deg, #ff9d5d, #ff7130); font-size: 14px; font-weight: 700; box-shadow: 0 8px 24px #ff8a3d33; transition: transform .2s ease, box-shadow .2s ease, filter .2s ease; }.login-button svg { transform: rotate(45deg); }.login-button:hover { transform: translateY(-2px); filter: brightness(1.06); box-shadow: 0 12px 30px #ff8a3d55; }.login-button:focus-visible { outline: 3px solid #ff8a3d66; outline-offset: 3px; }.login-note { margin: 22px 0 0; color: #817887; font-size: 11px; line-height: 1.5; text-align: center; }
 .main-panel { flex: 1; min-width: 0; display: flex; flex-direction: column; background: #212121; }
 .topbar { height: 57px; display: flex; align-items: center; justify-content: space-between; padding: 0 21px; }
 .model-picker { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; background: transparent; color: #d4d4d4; font: 600 14px "Manrope"; }
@@ -50,10 +64,10 @@ button { border: 0; cursor: pointer; color: inherit; }
 @media (max-width: 720px) { .sidebar { position: fixed; z-index: 5; inset: 0 auto 0 0; transform: translateX(-100%); transition: transform .25s ease; box-shadow: 15px 0 40px #0008; }.sidebar--open { transform: translateX(0); }.sidebar-close, .menu-button { display: grid; }.sidebar-backdrop { position: fixed; z-index: 4; inset: 0; background: #0008; }.topbar { padding: 0 13px; }.chat-stage { padding: 15px 15px 17px; }.prompt-grid { grid-template-columns: 1fr; }.prompt-card { min-height: auto; }.welcome { margin: auto 0 34px; }.welcome p { margin-bottom: 22px; }.message-list { padding-top: 18px; }.message-row { gap: 10px; margin-bottom: 24px; }.message-text { font-size: 14px; }.model-picker { margin-left: 4px; }.topbar-actions .icon-button { display: none; } }
 
 /* Restrained charcoal surfaces with purple structure and warm orange emphasis. */
-:root { color: #f4f1f7; background: #000; }
+:root { color: #F5F3FF; background: #000000; }
 body, .main-panel { background: #000; }
 .sidebar { background: #050505; }
-.brand-mark { color: #fff8f1; background: linear-gradient(135deg, #713f9b, #a967d0); }
+.brand-mark { color: #F5F3FF; background: linear-gradient(135deg, #713f9b, #a967d0); }
 .icon-button:hover, .history-item:hover, .account-card:hover { background: #211b29; color: #fff; }
 .new-chat { background: #1b1721; border: 1px solid #30243c; }
 .new-chat:hover { background: #241b2d; border-color: #4f3570; }
@@ -63,7 +77,7 @@ body, .main-panel { background: #000; }
 .history-item { color: #c8c0cf; }
 .history-item.active { background: #261d31; color: #fff; box-shadow: inset 2px 0 #ff8a3d; }
 .sidebar-footer { border-color: #28202f; }
-.avatar { background: #5a3b72; color:  #ff8a3d; }
+.avatar { background: #683003; color:  #0e0500; }
 .model-picker { color: #e7e1ed; }
 .model-picker:hover { background: #211b29; }
 .status-dot { background: #ff8a3d; box-shadow: 0 0 0 3px #4d2d25; }
@@ -85,7 +99,7 @@ body, .main-panel { background: #000; }
 .composer input::placeholder { color: #918897; }
 .composer-button { color: #a59bac; }
 .composer-button:hover { color: #fff; }
-.send-button { background: #39333e; color: #9e95a3; }
+.send-button { background: #FF8A3D; color: #fffefe; }
 .send-button--ready { color: #271409; background: #ff8a3d; }
 .send-button--ready:hover { background: #ff9d5d; }
 .composer-note { color: #817887; }

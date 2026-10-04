@@ -5,7 +5,7 @@ from typing import Any
 import uvicorn
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -36,6 +36,22 @@ UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
 
 
+@app.on_event("startup")
+def startup() -> None:
+    init_db()
+@app.get("/")
+async def root_to_login():
+    return RedirectResponse(url="/login")
+@app.get("/login")
+async def login_page():
+    return "thisIstheloginpage"
+
+def user_login() -> dict[str, str]:
+    return {"message": "Login endpoint placeholder"} 
+@app.get("/api/health")
+def health() -> dict[str, str]:
+    return {"status": "ok"}
+
 class ChatRequest(BaseModel):
     thread_id: str
     message: str = Field(min_length=1, max_length=20_000)
@@ -52,16 +68,6 @@ def message_content(message: Any) -> str:
             for part in content
         )
     return str(content)
-
-
-@app.on_event("startup")
-def startup() -> None:
-    init_db()
-
-
-@app.get("/api/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
 
 
 @app.get("/api/conversations")

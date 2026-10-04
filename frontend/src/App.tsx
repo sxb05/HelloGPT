@@ -4,6 +4,7 @@ import {
   ChevronDown,
   Copy,
   FileText,
+  LogOut,
   Menu,
   MessageSquare,
   MoreHorizontal,
@@ -39,6 +40,11 @@ function OpenAiLogoIcon({ size = 20 }: { size?: number }) {
 }
 
 function App() {
+
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
+    return !!localStorage.getItem("user_token");
+  });
+
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [threadId, setThreadId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -49,24 +55,46 @@ function App() {
   const [error, setError] = useState("");
   const [fileName, setFileName] = useState("");
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+   const handleLogin = (e: FormEvent) => {
+    e.preventDefault();
+    // Simulate a successful login token creation
+    localStorage.setItem("user_token", "dummy-secret-session-key");
+    setIsLoggedIn(true);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("user_token");
+    setIsLoggedIn(false);
+    setConversations([]);
+    setMessages([]);
+    setThreadId(null);
+    setAccountMenuOpen(false);
+  };
+
   useEffect(() => {
+    if (!isLoggedIn) return;
     fetch("/api/conversations")
       .then((response) => (response.ok ? response.json() : []))
       .then((data: Conversation[]) => setConversations(data))
       .catch(() => undefined);
-  }, []);
+  }, [isLoggedIn]);
 
   useEffect(() => {
+    if (!isLoggedIn) return;
     const sharedThreadId = new URLSearchParams(window.location.search).get("conversation");
     if (sharedThreadId && conversations.some((conversation) => conversation.thread_id === sharedThreadId)) {
       void selectConversation(sharedThreadId);
     }
-  }, [conversations]);
+  }, [conversations, isLoggedIn]);
 
-  useEffect(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), [messages, loading]);
+  useEffect(() => {
+  bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+}, [messages, loading]);
+
 
   async function selectConversation(id: string) {
     setThreadId(id);
@@ -164,6 +192,9 @@ function App() {
       setThreadId(activeThread);
       setConversations((current) => [conversation, ...current]);
     }
+    
+    
+    
     if (!activeThread) return;
     setFileName(file.name);
     const form = new FormData();
@@ -171,7 +202,36 @@ function App() {
     const response = await fetch(`/api/conversations/${activeThread}/files`, { method: "POST", body: form });
     if (!response.ok) setError("This file could not be added to the conversation.");
   }
-
+  
+  if (!isLoggedIn) {
+    return (
+      <main className="login-page">
+        <div className="login-glow login-glow--top" aria-hidden="true" />
+        <div className="login-glow login-glow--bottom" aria-hidden="true" />
+        <section className="login-card" aria-labelledby="login-title">
+          <div className="login-brand">
+            <span className="brand-mark"><OpenAiLogoIcon size={21} /></span>
+            <span>HelloGPT</span>
+          </div>
+          <div className="login-heading">
+            <div className="login-orb" aria-hidden="true">
+              <OpenAiLogoIcon size={30} />
+            </div>
+            <p className="login-eyebrow">Your thoughtful AI workspace</p>
+            <h1 id="login-title">Welcome back</h1>
+            <p>Sign in to continue your conversations, ideas, and work.</p>
+          </div>
+          <form onSubmit={handleLogin}>
+            <button type="submit" className="login-button">
+              <span>Continue to HelloGPT</span>
+              <ArrowUp size={17} />
+            </button>
+          </form>
+          <p className="login-note">By continuing, you agree to use HelloGPT responsibly.</p>
+        </section>
+      </main>
+    );
+  }
   return (
     <div className="app-shell">
       <aside className={`sidebar ${sidebarOpen ? "sidebar--open" : ""}`}>
@@ -213,7 +273,30 @@ function App() {
           ))}
         </nav>
         <div className="sidebar-footer">
-          <button className="account-card"><span className="avatar">S</span><span><strong>Rahul</strong><small>Free plan</small></span><MoreHorizontal size={17} /></button>
+          <div className="account-menu-wrap">
+            <button
+              className="account-card"
+              aria-label="Open account menu"
+              aria-expanded={accountMenuOpen}
+              aria-haspopup="menu"
+              onClick={() => setAccountMenuOpen((current) => !current)}
+            >
+              <span className="avatar">S</span>
+              <span><strong>Rahul</strong><small>Free plan</small></span>
+              <MoreHorizontal size={17} />
+            </button>
+            {accountMenuOpen && (
+              <div className="account-menu" role="menu">
+                <button
+                  className="danger"
+                  role="menuitem"
+                  onClick={handleLogout}
+                >
+                  <LogOut size={14} /> Sign out
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </aside>
       {sidebarOpen && <button className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} aria-label="Close sidebar" />}
