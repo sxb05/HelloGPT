@@ -17,7 +17,7 @@ load_dotenv()
 Path("uploads").mkdir(exist_ok=True)
 Path("chroma_db").mkdir(exist_ok=True)
 
-embeddings = GoogleGenerativeAIEmbeddings(model="text-embedding-004")
+embeddings = GoogleGenerativeAIEmbeddings(model="gemini-embedding-001")
 
 vector_store = Chroma(
     collection_name = "chatbot_docs",

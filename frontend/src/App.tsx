@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import {
   ArrowUp,
   ChevronDown,
@@ -39,10 +40,105 @@ function OpenAiLogoIcon({ size = 20 }: { size?: number }) {
   );
 }
 
+const backgroundOrbs = [
+  { className: "auth-orb auth-orb--amber", initial: { x: -80, y: 30 }, animate: { x: 80, y: -45 } },
+  { className: "auth-orb auth-orb--violet", initial: { x: 70, y: -35 }, animate: { x: -55, y: 55 } },
+  { className: "auth-orb auth-orb--rose", initial: { x: 0, y: 65 }, animate: { x: -45, y: -35 } },
+];
+
+function AuthMotionBackground() {
+  const prefersReducedMotion = useReducedMotion();
+
+  return (
+    <div className="auth-motion-background" aria-hidden="true">
+      <motion.div
+        className="auth-mesh"
+        animate={prefersReducedMotion ? undefined : { rotate: 360, scale: [1, 1.08, 1] }}
+        transition={prefersReducedMotion ? undefined : { rotate: { duration: 60, repeat: Infinity, ease: "linear" }, scale: { duration: 16, repeat: Infinity, ease: "easeInOut" } }}
+      />
+      {backgroundOrbs.map((orb, index) => (
+        <motion.div
+          className={orb.className}
+          key={orb.className}
+          initial={orb.initial}
+          animate={prefersReducedMotion ? orb.initial : orb.animate}
+          transition={prefersReducedMotion ? undefined : { duration: 9 + index * 2, repeat: Infinity, repeatType: "mirror", ease: "easeInOut", delay: index * -1.5 }}
+        />
+      ))}
+      <motion.div
+        className="auth-scanline"
+        animate={prefersReducedMotion ? undefined : { y: ["-15vh", "115vh"] }}
+        transition={prefersReducedMotion ? undefined : { duration: 12, repeat: Infinity, ease: "linear", repeatDelay: 4 }}
+      />
+    </div>
+  );
+}
+
+type AuthPageProps = {
+  error: string;
+  isRegisterMode: boolean;
+  onModeChange: (isRegisterMode: boolean) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+};
+
+function AuthPage({ error, isRegisterMode, onModeChange, onSubmit }: AuthPageProps) {
+  return (
+    <main className="login-page">
+      <AuthMotionBackground />
+      <div className="login-noise" aria-hidden="true" />
+      <section className="login-card" aria-labelledby="login-title">
+        <div className="login-brand">
+          <span className="brand-mark"><OpenAiLogoIcon size={18} /></span>
+          <span>HelloGPT</span>
+          <span className="login-live"><span /> Secure workspace</span>
+        </div>
+        <div className="login-heading">
+          <div className="login-orb" aria-hidden="true"><OpenAiLogoIcon size={30} /></div>
+          <p className="login-eyebrow">{isRegisterMode ? "Start creating" : "Welcome back"}</p>
+          <h1 id="login-title">{isRegisterMode ? "Create your account" : "Your ideas, in one place."}</h1>
+          <p>{isRegisterMode
+            ? "Set up your private AI workspace in a few seconds."
+            : "Sign in to continue your conversations, ideas, and work."}</p>
+        </div>
+        <form className="auth-form" onSubmit={onSubmit}>
+          <label className="auth-field">
+            <span>Username</span>
+            <span className="auth-input-wrap">
+              <input type="text" name="username" autoComplete="username" required minLength={3} maxLength={255} pattern="[A-Za-z0-9_.-]+" placeholder="you@example" />
+            </span>
+          </label>
+          <label className="auth-field">
+            <span>Password</span>
+            <span className="auth-input-wrap">
+              <input type="password" name="password" autoComplete={isRegisterMode ? "new-password" : "current-password"} required minLength={8} maxLength={128} placeholder="At least 8 characters" />
+            </span>
+          </label>
+          {error && <p className="auth-error" role="alert">{error}</p>}
+          <button className="login-button" type="submit">
+            <span>{isRegisterMode ? "Create account" : "Continue to HelloGPT"}</span>
+            <ArrowUp size={17} />
+          </button>
+        </form>
+        <p className="auth-switch">
+          {isRegisterMode ? "Already have an account?" : "New to HelloGPT?"}
+          <button type="button" onClick={() => onModeChange(!isRegisterMode)}>
+            {isRegisterMode ? "Log in" : "Create an account"}
+          </button>
+        </p>
+        <p className="login-note">Private by design. Your conversations belong to you.</p>
+      </section>
+    </main>
+  );
+}
+
 function App() {
 
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
-    return !!localStorage.getItem("user_token");
+    return !!localStorage.getItem("access_token");
+  });
+
+  const [username, setUsername] = useState<string>(() => {
+    return localStorage.getItem("username") || "GUEST";
   });
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -53,21 +149,69 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [model, setModel] = useState("gemini-3.1-flash-lite");
   const [error, setError] = useState("");
+  const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [fileName, setFileName] = useState("");
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-   const handleLogin = (e: FormEvent) => {
+  const authenticatedFetch = (input: RequestInfo | URL, init: RequestInit = {}) => {
+    const headers = new Headers(init.headers);
+    const token = localStorage.getItem("access_token");
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+    return fetch(input, { ...init, headers });
+  };
+
+  const handleAuthSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    // Simulate a successful login token creation
-    localStorage.setItem("user_token", "dummy-secret-session-key");
-    setIsLoggedIn(true);
+    setError("");
+
+    const target = e.currentTarget as HTMLFormElement;
+    const username = (target.elements.namedItem("username") as HTMLInputElement).value;
+    const password = (target.elements.namedItem("password") as HTMLInputElement).value;
+
+    try {
+      if (isRegisterMode) {
+        const registrationResponse = await fetch("/api/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password }),
+        });
+
+        if (!registrationResponse.ok) {
+          const errorData = await registrationResponse.json().catch(() => ({}));
+          throw new Error(
+            errorData.detail || "Registration failed. Username might be taken.",
+          );
+        }
+      }
+
+      const formData = new URLSearchParams({ username, password });
+      const tokenResponse = await fetch("/api/auth/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: formData,
+      });
+
+      if (!tokenResponse.ok) {
+        const errorData = await tokenResponse.json().catch(() => ({}));
+        throw new Error(errorData.detail || "Invalid username or password.");
+      }
+
+      const data = await tokenResponse.json();
+      localStorage.setItem("access_token", data.access_token);
+      localStorage.setItem("username", username);
+      setUsername(username);
+      setIsLoggedIn(true);
+      setIsRegisterMode(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Authentication failed.");
+    }
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("user_token");
+    localStorage.removeItem("access_token");
     setIsLoggedIn(false);
     setConversations([]);
     setMessages([]);
@@ -77,8 +221,18 @@ function App() {
 
   useEffect(() => {
     if (!isLoggedIn) return;
-    fetch("/api/conversations")
-      .then((response) => (response.ok ? response.json() : []))
+    const token = localStorage.getItem("access_token");
+    fetch("/api/conversations",
+     {
+      headers: { "Authorization": `Bearer ${token}` }
+    })
+      .then((response) => {
+        if (response.status === 401) {
+          handleLogout(); // Token expired dynamically according to auth.py
+          return [];
+        }
+        return response.ok ? response.json() : [];
+      })
       .then((data: Conversation[]) => setConversations(data))
       .catch(() => undefined);
   }, [isLoggedIn]);
@@ -101,7 +255,7 @@ function App() {
     setSidebarOpen(false);
     setError("");
     setOpenMenuId(null);
-    const response = await fetch(`/api/conversations/${id}/messages`);
+    const response = await authenticatedFetch(`/api/conversations/${id}/messages`);
     if (response.ok) setMessages(await response.json());
   }
 
@@ -118,7 +272,7 @@ function App() {
 
   async function removeConversation(conversation: Conversation) {
     if (!window.confirm(`Delete "${conversation.name}"? This cannot be undone.`)) return;
-    const response = await fetch(`/api/conversations/${conversation.thread_id}`, { method: "DELETE" });
+    const response = await authenticatedFetch(`/api/conversations/${conversation.thread_id}`, { method: "DELETE" });
     if (!response.ok) {
       setError("Unable to delete this conversation.");
       return;
@@ -132,7 +286,7 @@ function App() {
   }
 
   async function newChat() {
-    const response = await fetch("/api/conversations", { method: "POST" });
+    const response = await authenticatedFetch("/api/conversations", { method: "POST" });
     if (!response.ok) return;
     const conversation: Conversation = await response.json();
     setConversations((current) => [conversation, ...current]);
@@ -148,7 +302,7 @@ function App() {
     if (!trimmed || loading) return;
     let activeThread = threadId;
     if (!activeThread) {
-      const response = await fetch("/api/conversations", { method: "POST" });
+      const response = await authenticatedFetch("/api/conversations", { method: "POST" });
       if (!response.ok) return;
       const conversation: Conversation = await response.json();
       activeThread = conversation.thread_id;
@@ -160,7 +314,7 @@ function App() {
     setMessages((current) => [...current, { role: "user", content: trimmed }]);
     setLoading(true);
     try {
-      const response = await fetch("/api/chat", {
+      const response = await authenticatedFetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ thread_id: activeThread, message: trimmed, model }),
@@ -185,7 +339,7 @@ function App() {
   async function uploadFile(file: File) {
     let activeThread = threadId;
     if (!activeThread) {
-      const response = await fetch("/api/conversations", { method: "POST" });
+      const response = await authenticatedFetch("/api/conversations", { method: "POST" });
       if (!response.ok) return;
       const conversation: Conversation = await response.json();
       activeThread = conversation.thread_id;
@@ -199,37 +353,28 @@ function App() {
     setFileName(file.name);
     const form = new FormData();
     form.append("file", file);
-    const response = await fetch(`/api/conversations/${activeThread}/files`, { method: "POST", body: form });
-    if (!response.ok) setError("This file could not be added to the conversation.");
+    const response = await authenticatedFetch(`/api/conversations/${activeThread}/files`, { method: "POST", body: form });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const detail = typeof errorData.detail === "string"
+        ? errorData.detail
+        : "This file could not be added to the conversation.";
+      setError(detail);
+      setFileName("");
+    }
   }
   
   if (!isLoggedIn) {
     return (
-      <main className="login-page">
-        <div className="login-glow login-glow--top" aria-hidden="true" />
-        <div className="login-glow login-glow--bottom" aria-hidden="true" />
-        <section className="login-card" aria-labelledby="login-title">
-          <div className="login-brand">
-            <span className="brand-mark"><OpenAiLogoIcon size={21} /></span>
-            <span>HelloGPT</span>
-          </div>
-          <div className="login-heading">
-            <div className="login-orb" aria-hidden="true">
-              <OpenAiLogoIcon size={30} />
-            </div>
-            <p className="login-eyebrow">Your thoughtful AI workspace</p>
-            <h1 id="login-title">Welcome back</h1>
-            <p>Sign in to continue your conversations, ideas, and work.</p>
-          </div>
-          <form onSubmit={handleLogin}>
-            <button type="submit" className="login-button">
-              <span>Continue to HelloGPT</span>
-              <ArrowUp size={17} />
-            </button>
-          </form>
-          <p className="login-note">By continuing, you agree to use HelloGPT responsibly.</p>
-        </section>
-      </main>
+      <AuthPage
+        error={error}
+        isRegisterMode={isRegisterMode}
+        onModeChange={(registerMode) => {
+          setIsRegisterMode(registerMode);
+          setError("");
+        }}
+        onSubmit={handleAuthSubmit}
+      />
     );
   }
   return (
@@ -281,8 +426,8 @@ function App() {
               aria-haspopup="menu"
               onClick={() => setAccountMenuOpen((current) => !current)}
             >
-              <span className="avatar">S</span>
-              <span><strong>Rahul</strong><small>Free plan</small></span>
+              <span className="avatar">{username?.trim() ? username.trim().charAt(0).toUpperCase() : "?"}</span>
+              <span><strong>{username}</strong><small>Free plan</small></span>
               <MoreHorizontal size={17} />
             </button>
             {accountMenuOpen && (
@@ -306,7 +451,7 @@ function App() {
           <button className="model-picker" onClick={() => setModel(model === "gemini-3.1-flash-lite" ? "gemini-2.5-flash" : "gemini-3.1-flash-lite")}>
             <span className="status-dot" /> {model === "gemini-3.1-flash-lite" ? "HelloGPT" : "HelloGPT Fast"} <ChevronDown size={15} />
           </button>
-          <div className="topbar-actions"><button className="icon-button" aria-label="Share chat"><MoreHorizontal size={19} /></button><button className="avatar small">R</button></div>
+          <div className="topbar-actions"><button className="icon-button" aria-label="Share chat"><MoreHorizontal size={19} /></button><button className="avatar small">{username?.trim() ? username.trim().charAt(0).toUpperCase() : "?"}</button></div>
         </header>
         <section className={`chat-stage ${messages.length ? "chat-stage--active" : ""}`}>
           {messages.length === 0 ? (
@@ -343,7 +488,7 @@ function App() {
 function Message({ message }: { message: ChatMessage }) {
   const isUser = message.role === "user";
   return <div className={`message-row ${isUser ? "user" : "assistant"}`}>
-    {isUser ? <div className="avatar message-avatar">R</div> : <div className="assistant-avatar"><OpenAiLogoIcon size={15} /></div>}
+    {isUser ? <div className="avatar message-avatar">s</div> : <div className="assistant-avatar"><OpenAiLogoIcon size={15} /></div>}
     <div className="message-content"><div className="message-role">{isUser ? "You" : "HelloGPT"}</div><div className="message-text">{message.content}</div>{!isUser && <div className="message-actions"><button aria-label="Copy response"><Copy size={14} /></button><button aria-label="Good response"><ThumbsUp size={14} /></button><button aria-label="Bad response"><ThumbsDown size={14} /></button></div>}</div>
   </div>;
 }

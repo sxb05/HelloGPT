@@ -10,7 +10,9 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from agent import get_agent
+from auth import CurrentUser, router as auth_router
 from db import (
+    conversation_belongs_to_user,
     create_update_convo,
     delete_conversation,
     get_chat_history,
@@ -23,6 +25,7 @@ from tools import set_current_thid
 
 
 app = FastAPI(title="HelloGPT")
+app.include_router(auth_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
@@ -34,17 +37,17 @@ app.add_middleware(
 FRONTEND = Path(__file__).parent / "frontend" / "dist"
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
+MAX_UPLOAD_SIZE = 10 * 1024 * 1024
 
 
 @app.on_event("startup")
 def startup() -> None:
     init_db()
+
+    
 @app.get("/")
 async def root_to_login():
     return RedirectResponse(url="/login")
-@app.get("/login")
-async def login_page():
-    return "thisIstheloginpage"
 
 def user_login() -> dict[str, str]:
     return {"message": "Login endpoint placeholder"} 
@@ -71,44 +74,47 @@ def message_content(message: Any) -> str:
 
 
 @app.get("/api/conversations")
-def conversations() -> list[dict[str, str]]:
+def conversations(current_user: CurrentUser) -> list[dict[str, str]]:
     return [
         {
             "thread_id": conversation.thread_id,
             "name": conversation.name,
             "updated_at": conversation.updated_at,
         }
-        for conversation in list_conversations()
+        for conversation in list_conversations(current_user.id)
     ]
 
 
 @app.post("/api/conversations")
-def new_conversation() -> dict[str, str]:
+def new_conversation(current_user: CurrentUser) -> dict[str, str]:
     thread_id = str(uuid.uuid4())
-    create_update_convo(thread_id, "", "New conversation")
+    create_update_convo(thread_id, current_user.id, "", "New conversation")
     return {"thread_id": thread_id, "name": "New conversation"}
 
 
 @app.get("/api/conversations/{thread_id}/messages")
-def history(thread_id: str) -> list[dict[str, str]]:
+def history(thread_id: str, current_user: CurrentUser) -> list[dict[str, str]]:
     return [
         {"role": message.role, "content": message.content}
-        for message in get_chat_history(thread_id)
+        for message in get_chat_history(thread_id, current_user.id)
     ]
 
 
 @app.delete("/api/conversations/{thread_id}")
-def remove_conversation(thread_id: str) -> dict[str, bool]:
-    if not delete_conversation(thread_id):
+def remove_conversation(thread_id: str, current_user: CurrentUser) -> dict[str, bool]:
+    if not delete_conversation(thread_id, current_user.id):
         raise HTTPException(status_code=404, detail="Conversation not found.")
     return {"deleted": True}
 
 
 @app.post("/api/chat")
-def chat(request: ChatRequest) -> dict[str, str]:
-    create_update_convo(request.thread_id, request.message, request.message[:48])
+def chat(request: ChatRequest, current_user: CurrentUser) -> dict[str, str]:
+    if not create_update_convo(
+        request.thread_id, current_user.id, request.message, request.message[:48]
+    ):
+        raise HTTPException(status_code=404, detail="Conversation not found.")
     set_current_thid(request.thread_id)
-    save_chat_message(request.thread_id, "user", request.message)
+    save_chat_message(request.thread_id, current_user.id, "user", request.message)
 
     try:
         agent = get_agent(request.model)
@@ -121,23 +127,42 @@ def chat(request: ChatRequest) -> dict[str, str]:
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Unable to generate a response: {exc}") from exc
 
-    save_chat_message(request.thread_id, "assistant", answer)
+    save_chat_message(request.thread_id, current_user.id, "assistant", answer)
     return {"role": "assistant", "content": answer}
 
 
 @app.post("/api/conversations/{thread_id}/files")
-async def upload_file(thread_id: str, file: UploadFile = File(...)) -> dict[str, Any]:
+async def upload_file(
+    thread_id: str, current_user: CurrentUser, file: UploadFile = File(...)
+) -> dict[str, Any]:
+    if not conversation_belongs_to_user(thread_id, current_user.id):
+        raise HTTPException(status_code=404, detail="Conversation not found.")
+
     suffix = Path(file.filename or "").suffix.lower()
     if suffix not in {".pdf", ".docx", ".txt", ".md"}:
         raise HTTPException(status_code=400, detail="Upload a PDF, DOCX, TXT, or MD file.")
+
     destination = UPLOAD_DIR / f"{uuid.uuid4()}{suffix}"
-    destination.write_bytes(await file.read())
     try:
+        contents = await file.read(MAX_UPLOAD_SIZE + 1)
+        if not contents:
+            raise HTTPException(status_code=400, detail="The uploaded file is empty.")
+        if len(contents) > MAX_UPLOAD_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail="The uploaded file must be smaller than 10 MB.",
+            )
+
+        destination.write_bytes(contents)
         result = add_document_to_vector_store(str(destination), thread_id)
+        return result
+    except HTTPException:
+        raise
     except Exception as exc:
-        destination.unlink(missing_ok=True)
         raise HTTPException(status_code=422, detail=f"Unable to index file: {exc}") from exc
-    return result
+    finally:
+        destination.unlink(missing_ok=True)
+        await file.close()
 
 
 if FRONTEND.exists():
