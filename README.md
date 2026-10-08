@@ -2,7 +2,11 @@
 
 > **Work in progress**
 >
-> HelloGPT is an actively developed ChatGPT-style assistant built with a React + TypeScript frontend and a Python/FastAPI backend. The project is functional in several areas, but it is **not complete** and its APIs, UI, data model, and configuration may continue to change.
+> HelloGPT is a ChatGPT-style assistant with a React + TypeScript frontend and a
+> Python/FastAPI backend. It supports authenticated workspaces, persistent
+> conversations, Gemini-powered chat, web search tools, and document-grounded
+> answers. The project is still evolving, so APIs, UI, and configuration may
+> change.
 
 ## Overview
 
@@ -32,10 +36,9 @@ HelloGPT is being developed as a practical AI assistant with:
 
 ### Still in progress
 
-- Authentication and user accounts
 - Production database and deployment configuration
 - Streaming assistant responses
-- Conversation deletion, renaming, and search behavior
+- Conversation renaming and search behavior
 - Complete document-management UI
 - Automated backend and frontend test coverage
 - Production-grade observability and error reporting
@@ -59,7 +62,7 @@ HelloGPT is being developed as a practical AI assistant with:
 - LangChain
 - LangGraph
 - SQLAlchemy
-- SQLite for local persistence
+- SQLite for local persistence and LangGraph checkpoints
 - Chroma for vector search
 - Google Gemini for model and embedding access
 
@@ -75,7 +78,7 @@ HelloGPT is being developed as a practical AI assistant with:
 ├── requirements.txt          # Python dependencies
 ├── data/                     # Local SQLite and LangGraph checkpoint files
 ├── chroma_db/                # Local Chroma vector-store data
-├── uploads/                  # Uploaded document files
+├── uploads/                  # Temporary uploaded document files
 └── frontend/
     ├── src/
     │   ├── App.tsx           # Main chat interface and API integration
@@ -92,7 +95,7 @@ HelloGPT is being developed as a practical AI assistant with:
 - Node.js 18 or newer
 - npm
 - A Google Gemini API key
-- Optional: a Tavily API key if web search is enabled
+- A Tavily API key for the web-search tool
 
 ## Local setup
 
@@ -125,7 +128,13 @@ Create a `.env` file in the project root:
 ```env
 GEMINI_API_KEY=your_gemini_api_key
 TAVILY_API_KEY=your_tavily_api_key
+JWT_SECRET_KEY=replace-with-a-long-random-secret
 ```
+
+`GEMINI_API_KEY` is used for chat and document embeddings. `TAVILY_API_KEY`
+is used by the web-search tool. Set `JWT_SECRET_KEY` to a long, random value
+before sharing or deploying the application; the built-in fallback is intended
+only for local development.
 
 Do not commit `.env` or any API keys to source control.
 
@@ -161,6 +170,9 @@ http://localhost:5173
 
 The Vite development server proxies `/api` requests to the FastAPI server at `http://127.0.0.1:8000`.
 
+Create an account from the login page before using the chat workspace. Access
+tokens expire after 30 minutes and are sent as Bearer tokens by the frontend.
+
 ## Production frontend build
 
 Build the frontend:
@@ -190,11 +202,19 @@ http://127.0.0.1:8000
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
 | `GET` | `/api/health` | Check backend availability |
+| `POST` | `/api/auth/register` | Create a user account |
+| `POST` | `/api/auth/token` | Log in and receive a Bearer token |
+| `GET` | `/api/auth/me` | Return the authenticated user |
 | `GET` | `/api/conversations` | List saved conversations |
 | `POST` | `/api/conversations` | Create a conversation |
 | `GET` | `/api/conversations/{thread_id}/messages` | Load conversation history |
+| `DELETE` | `/api/conversations/{thread_id}` | Delete a conversation |
 | `POST` | `/api/chat` | Send a message and receive an assistant response |
 | `POST` | `/api/conversations/{thread_id}/files` | Upload and index a supported document |
+
+All conversation, chat, and upload endpoints require an
+`Authorization: Bearer <token>` header. Registration and token requests do not
+require authentication.
 
 Example chat request:
 
@@ -206,6 +226,17 @@ Example chat request:
 }
 ```
 
+The backend accepts these model names: `gemini-3.8`, `gemini-3.5`,
+`gemini-2.5-flash`, and `gemini-3.1-flash-lite`. The frontend currently
+switches between `gemini-3.1-flash-lite` and `gemini-2.5-flash`.
+
+### Document uploads
+
+Uploads are limited to PDF, DOCX, TXT, and Markdown files smaller than 10 MB.
+Files are parsed, split into chunks, and stored in the local Chroma database
+with the conversation thread ID as metadata. The original uploaded file is
+removed after indexing.
+
 ## Development notes
 
 - Local database files and vector-store data are created at runtime.
@@ -213,6 +244,10 @@ Example chat request:
 - Model names are validated by the agent layer; keep frontend model options aligned with `agent.py`.
 - Uploaded documents are associated with a conversation thread for retrieval.
 - The project currently favors local development and experimentation over deployment hardening.
+- The local application stores users, conversations, messages, and memories in
+  `data/memory.db`; LangGraph checkpoints are stored in `data/langgraph_checkpoint.dqlite`.
+- Do not use the development JWT secret or SQLite/local vector storage as-is
+  for a production deployment.
 
 ## Validation
 
@@ -223,7 +258,9 @@ Set-Location .\frontend
 npm run build
 ```
 
-Before making a production deployment, add and run backend tests, frontend interaction tests, security checks, and a deployment-specific configuration review.
+Before making a production deployment, add and run backend tests, frontend
+interaction tests, security checks, and a deployment-specific configuration
+review.
 
 ## Contributing
 
