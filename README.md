@@ -1,70 +1,103 @@
-# HelloGPT
+# Pagetrail
 
-> **Work in progress**
->
-> HelloGPT is a ChatGPT-style assistant with a React + TypeScript frontend and a
-> Python/FastAPI backend. It supports authenticated workspaces, persistent
-> conversations, Gemini-powered chat, web search tools, and document-grounded
-> answers. The project is still evolving, so APIs, UI, and configuration may
-> change.
+**Every answer leaves a trail back to a page.**
 
-## Overview
+Pagetrail answers questions from your own documents, shows where each answer
+came from, and says so when the answer isn't there. It also searches the web and
+keeps a memory you can inspect.
 
-HelloGPT is being developed as a practical AI assistant with:
+> **Work in progress.** Core chat, accounts, document upload and retrieval work
+> today. Page-level citations, streaming, automated tests and published
+> evaluation results are in progress (see [Status](#status)). Nothing in this
+> README reports a measured accuracy yet; numbers will be added once the
+> evaluation sets exist.
 
-- A dark, responsive chat interface inspired by modern AI products
-- Conversation history backed by SQLite
-- LangGraph-based agent orchestration
-- Google Gemini model integration
-- Long-term memory tools
-- Web search tooling
-- Retrieval-augmented generation for uploaded documents
-- PDF, DOCX, TXT, and Markdown document ingestion
-- A FastAPI API that serves the frontend in production
+## What it does
 
-## Current status
+- **Document Q&A.** Upload a PDF, DOCX, TXT or Markdown file to a conversation
+  and ask questions about it. Retrieval is scoped to that conversation.
+- **Cited answers (in progress).** Each document answer should point to the
+  file and page it came from, so you can check it.
+- **Honest gaps (in progress).** If the documents don't contain the answer, the
+  assistant should say so instead of guessing.
+- **Web search.** The agent can look things up through Tavily when your
+  documents aren't enough.
+- **Long-term memory.** The agent can store and recall facts across
+  conversations.
+- **Accounts and history.** JWT authentication and persistent conversations.
 
-### Currently available
+## How an answer is produced
 
-- Create and select conversations
+The model only sees what ends up in its prompt: your question, the conversation
+history, and whatever the tools return. A LangGraph agent decides for each
+message whether to answer directly or call a tool.
+
+```text
+Message
+  -> LangGraph agent (Gemini) reads message + history
+  -> decides: answer directly, or call a tool
+       - document search -> top chunks from Chroma (this conversation only)
+       - web search      -> Tavily results
+       - memory          -> read or write stored facts
+  -> tool results are added to the prompt
+  -> Gemini writes the answer
+  -> message saved to SQLite and returned to the frontend
+```
+
+## Status
+
+### Available
+
+- Create, select and delete conversations
 - Persist user and assistant messages
-- Send chat messages through the FastAPI backend
-- Choose between the configured Gemini model names from the frontend
-- Upload supported documents for indexing
+- Chat through the FastAPI backend with a choice of configured Gemini models
+- Upload PDF, DOCX, TXT and Markdown files for indexing
+- Web search and long-term memory tools
 - Responsive sidebar with conversation history
 - Production frontend build through Vite
 
-### Still in progress
+### In progress
 
-- Production database and deployment configuration
+- Page-level citations and a "not found" path for unanswerable questions
 - Streaming assistant responses
-- Conversation renaming and search behavior
-- Complete document-management UI
-- Automated backend and frontend test coverage
-- Production-grade observability and error reporting
-- Final security, privacy, and rate-limit review
+- Conversation renaming and search
+- Document management UI (list and delete indexed files)
+- Automated backend and frontend tests, and CI
+- Evaluation sets and published results (see below)
+- Tracing, cost and latency reporting
+- Rate limiting, security review and deployment configuration
+
+## Evaluation (planned)
+
+The goal is to measure the system instead of describing it. Results will be
+published here with the question sets and scoring scripts.
+
+| Area | What will be measured | Result |
+| --- | --- | --- |
+| Retrieval | Hit rate: is the correct chunk in the top 5? | Not yet measured |
+| Answers | Correctness and citation correctness, scored separately from retrieval | Not yet measured |
+| Unanswerable questions | How often it correctly says "not found" | Not yet measured |
+| Tool selection | How often the agent picks the right tool (documents, web, memory, none) | Not yet measured |
+| Cost and latency | Tokens, median and p95 response time per answer | Not yet measured |
+
+Failures will be broken down into extraction, retrieval and generation errors.
 
 ## Technology stack
 
 ### Frontend
 
-- React 18
-- TypeScript
-- Vite
+- React 18, TypeScript, Vite
 - `lucide-react`
 - CSS-based responsive styling and animations
 
 ### Backend
 
-- Python 3.11+
-- FastAPI
-- Uvicorn
-- LangChain
-- LangGraph
-- SQLAlchemy
-- SQLite for local persistence and LangGraph checkpoints
+- Python 3.11+, FastAPI, Uvicorn
+- LangChain and LangGraph
+- SQLAlchemy with SQLite for local persistence and LangGraph checkpoints
 - Chroma for vector search
-- Google Gemini for model and embedding access
+- Google Gemini for chat and embeddings
+- Tavily for web search
 
 ## Project structure
 
@@ -104,8 +137,8 @@ The commands below are written for PowerShell on Windows.
 ### 1. Clone the project
 
 ```powershell
-git clone <repository-url>
-Set-Location .\RAGRAPH_bot
+git clone https://github.com/sxb05/Pagetrail.git
+Set-Location .\Pagetrail
 ```
 
 ### 2. Create and activate a Python environment
@@ -131,10 +164,10 @@ TAVILY_API_KEY=your_tavily_api_key
 JWT_SECRET_KEY=replace-with-a-long-random-secret
 ```
 
-`GEMINI_API_KEY` is used for chat and document embeddings. `TAVILY_API_KEY`
-is used by the web-search tool. Set `JWT_SECRET_KEY` to a long, random value
-before sharing or deploying the application; the built-in fallback is intended
-only for local development.
+`GEMINI_API_KEY` is used for chat and document embeddings. `TAVILY_API_KEY` is
+used by the web-search tool. Set `JWT_SECRET_KEY` to a long, random value before
+sharing or deploying the application; the built-in fallback is intended only for
+local development.
 
 Do not commit `.env` or any API keys to source control.
 
@@ -168,7 +201,8 @@ Open the Vite URL shown in the terminal, normally:
 http://localhost:5173
 ```
 
-The Vite development server proxies `/api` requests to the FastAPI server at `http://127.0.0.1:8000`.
+The Vite development server proxies `/api` requests to the FastAPI server at
+`http://127.0.0.1:8000`.
 
 Create an account from the login page before using the chat workspace. Access
 tokens expire after 30 minutes and are sent as Bearer tokens by the frontend.
@@ -182,7 +216,8 @@ Set-Location .\frontend
 npm run build
 ```
 
-The generated files are placed in `frontend/dist`. When that directory exists, FastAPI serves the built frontend and its assets.
+The generated files are placed in `frontend/dist`. When that directory exists,
+FastAPI serves the built frontend and its assets.
 
 Run the backend:
 
@@ -226,9 +261,8 @@ Example chat request:
 }
 ```
 
-The backend accepts these model names: `gemini-3.8`, `gemini-3.5`,
-`gemini-2.5-flash`, and `gemini-3.1-flash-lite`. The frontend currently
-switches between `gemini-3.1-flash-lite` and `gemini-2.5-flash`.
+The backend accepts the model names configured in `agent.py`; keep the frontend
+model options aligned with that list.
 
 ### Document uploads
 
@@ -237,17 +271,32 @@ Files are parsed, split into chunks, and stored in the local Chroma database
 with the conversation thread ID as metadata. The original uploaded file is
 removed after indexing.
 
+## Known limitations
+
+- Answers are not streamed yet; the frontend shows a loading state.
+- Citations currently identify the source file only; page-level citations are in
+  progress.
+- Scanned PDFs without a text layer are not supported.
+- Tables in PDFs may be extracted poorly, which can affect answers about
+  specifications.
+- SQLite and local vector storage are intended for development, not production.
+
+## Security notes
+
+- Documents and web results are untrusted input. Prompt-injection handling is in
+  progress and will be covered by tests.
+- Retrieval is filtered by conversation; automated tests for isolation between
+  users are planned.
+- Do not use the development JWT secret as-is in a deployment.
+
 ## Development notes
 
 - Local database files and vector-store data are created at runtime.
-- The frontend currently uses a non-streaming chat request and displays a loading state while waiting for the response.
-- Model names are validated by the agent layer; keep frontend model options aligned with `agent.py`.
-- Uploaded documents are associated with a conversation thread for retrieval.
-- The project currently favors local development and experimentation over deployment hardening.
 - The local application stores users, conversations, messages, and memories in
-  `data/memory.db`; LangGraph checkpoints are stored in `data/langgraph_checkpoint.dqlite`.
-- Do not use the development JWT secret or SQLite/local vector storage as-is
-  for a production deployment.
+  `data/memory.db`; LangGraph checkpoints are stored in
+  `data/langgraph_checkpoint.dqlite`.
+- The project currently favors local development and experimentation over
+  deployment hardening.
 
 ## Validation
 
@@ -273,4 +322,6 @@ This project is still being shaped. When contributing:
 
 ## License
 
-No project license has been defined yet. Until a license is added, treat the repository as proprietary and obtain permission before redistributing or reusing the code.
+No project license has been defined yet. Until a license is added, treat the
+repository as proprietary and obtain permission before redistributing or reusing
+the code.
